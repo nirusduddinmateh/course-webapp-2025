@@ -1,5 +1,7 @@
 # หลักสูตรการสอน Laravel + Filament (4 วัน)
 
+<img src="img/logo.png" alt="Client–Server Model">
+
 ---
 
 ## Day 1 – พื้นฐานเว็บ และ PHP เบื้องต้น (6 ชม.)
