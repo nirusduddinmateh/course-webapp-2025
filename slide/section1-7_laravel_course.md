@@ -1535,22 +1535,41 @@ echo "ลบข้อมูลสำเร็จ";
 ?>
 ```
 
-## Step 6 – Mini Workshop
+## Step 6.1 – Mini Workshop
 **โจทย์:**
-สร้างระบบ จัดการสินค้า (Product Management) แบบง่าย ๆ
-- ตาราง products (id, name, price)
-- หน้า add_product.php → กรอกชื่อและราคาสินค้า
-- หน้า list_products.php → แสดงรายการสินค้าทั้งหมด
-- ปุ่ม แก้ไข และ ลบ (ทำงานผ่าน PHP + PDO)
+
+1. สร้างระบบ จัดการสินค้า (Product Management) แบบง่าย
+    - ตาราง products (id, name, price)
+    - เพิ่ม แก้ไข และ ลบ (ทำงานผ่าน PHP + PDO)
 
 **แนวทาง**
-1. สร้าง db.php → สำหรับเชื่อมต่อฐานข้อมูล
-2. ทำหน้าเพิ่มสินค้า → ใช้ INSERT
-3. ทำหน้ารายการสินค้า → ใช้ SELECT
-4. ทำหน้าแก้ไขสินค้า → ใช้ UPDATE
-5. ทำหน้าลบสินค้า → ใช้ DELETE
+1. สร้าง `db.php` → สำหรับเชื่อมต่อฐานข้อมูล
+2. ทำหน้าเพิ่มสินค้า → ใช้ `INSERT`
+3. ทำหน้ารายการสินค้า → ใช้ `SELECT`
+4. ทำหน้าแก้ไขสินค้า → ใช้ `UPDATE`
+5. ทำหน้าลบสินค้า → ใช้ `DELETE`
 
-### Step 7 – Laravel
+## Step 6.2 – Mini Workshop (ความปลอดภัยพื้นฐาน)
+
+**โจทย์:**
+
+1. สร้างระบบ จัดการผู้ใช้ (User Management) แบบง่าย
+    - ตาราง user (id, name, role)
+    - เพิ่ม แก้ไข และ ลบ (ทำงานผ่าน PHP + PDO)
+
+2. อัปเกรดระบบ Product Management เดิมให้ปลอดภัย:
+    - Login/Logout ด้วยรหัสผ่าน (hash ด้วย `password_hash`)
+    - ป้องกัน **CSRF** ทุกฟอร์มที่เป็น `POST`
+
+**แนวทาง**
+1. สร้างตาราง `users` (มี `role` = 'admin' | 'user')  
+2. ทำ `helpers.php` (e(), CSRF), `auth.php` (login/logout, require_admin) และ `bootstrap.php`  
+3. ทำหน้า `login.php` / `logout.php`  
+4. ทำเมนูจัดการผู้ใช้:
+   - ทุกหน้าจัดการผู้ใช้ **ต้อง** `require_admin()`  
+   - ทุกฟอร์ม **POST** ใส่ CSRF เสมอ
+
+### Step 8 – Laravel
 
 - ใน **Laravel** เราไม่ต้องเขียน SQL แบบดิบเองบ่อย ๆ เพราะมี **Eloquent ORM**  
 - แต่การเข้าใจ **SQL** และ **PDO** จะช่วยให้เรา:
