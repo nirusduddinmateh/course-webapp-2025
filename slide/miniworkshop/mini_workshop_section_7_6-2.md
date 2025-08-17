@@ -37,7 +37,7 @@ function csrf_verify_or_die(): void {
     http_response_code(419);
     exit('CSRF token invalid/expired');
   }
-  unset($_SESSION['csrf_token'], $_SESSION['csrf_time']); // หมุน token
+  unset($_SESSION['csrf_token'], $_SESSION['csrf_time']);
 }
 ```
 
