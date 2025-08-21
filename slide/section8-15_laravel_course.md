@@ -735,3 +735,131 @@ Route::get('/products', function () {
 - เขียน Route และ Controller ดึงข้อมูลลูกค้า
 - ส่งไป View
 - ใช้ Blade Loop + เงื่อนไข แสดงข้อมูลตามโจทย์
+
+# Section 12 – ติดตั้งและใช้ Filament 3
+
+## 🎯 เป้าหมายการเรียนรู้
+1. ติดตั้ง Filament 3 บน Laravel 11 ได้
+2. ใช้คำสั่งสร้าง Resource (CRUD) อัตโนมัติ
+3. ปรับแต่ง Field, Column ใน Filament
+4. ใช้ Relation Manager จัดการข้อมูลที่มีความสัมพันธ์กัน
+
+## Step 1 – Filament คืออะไร
+
+- **Filament** = Laravel Admin Panel Framework
+- ใช้สร้าง CRUD, Form, Table, Filter ได้เร็ว
+- รองรับการจัดการความสัมพันธ์ (Relation)
+- UI ใช้ Tailwind + Alpine.js → Responsive และสวยงาม
+
+## Step 2 – ติดตั้ง Filament 3
+
+อยู่ในโฟลเดอร์ **Laravel 11**
+
+รันคำสั่งติดตั้ง:
+
+```bash
+composer require filament/filament:"^3.3"
+```
+
+ติดตั้ง User Filament:
+```bash
+php artisan make:filament-user
+```
+- กรอกชื่อ, อีเมล, รหัสผ่าน
+รันเซิร์ฟเวอร์:
+```bash
+php artisan serve
+```
+เข้าหน้า `/admin` → ล็อกอินด้วยผู้ใช้ที่สร้างไว้
+
+## Step 3 – สร้าง Resource (CRUD)
+
+เรามี **Model `Product`** อยู่แล้ว (จาก Section 10)
+
+```bash
+php artisan make:filament-resource Product --generate
+```
+คำสั่งนี้จะสร้าง:
+- Resource: `app/Filament/Resources/ProductResource.php`
+- Pages: `app/Filament/Resources/ProductResource/Pages/`
+
+เปิดหน้า /admin/products → จะได้หน้าจัดการ Product อัตโนมัติ
+
+
+## Step 4 – ปรับแต่ง Field & Column
+
+**ไฟล์:** `app/Filament/Resources/ProductResource.php`
+
+```php
+public static function form(Form $form): Form
+{
+    return $form
+        ->schema([
+            TextInput::make('name')
+                ->label('ชื่อสินค้า')
+                ->required()
+                ->maxLength(100),
+            TextInput::make('price')
+                ->label('ราคา')
+                ->numeric()
+                ->prefix('฿')
+                ->required(),
+            TextInput::make('stock')
+                ->label('จำนวนในสต็อก')
+                ->numeric()
+                ->required(),
+        ]);
+}
+
+public static function table(Table $table): Table
+{
+    return $table
+        ->columns([
+            TextColumn::make('id')->sortable(),
+            TextColumn::make('name')->label('สินค้า')->searchable(),
+            TextColumn::make('price')->label('ราคา')->money('THB', true)->sortable(),
+            TextColumn::make('stock')->label('สต็อก')->sortable(),
+            TextColumn::make('created_at')->label('เพิ่มเมื่อ')->dateTime(),
+        ])
+        ->filters([
+            Filter::make('low_stock')
+                ->query(fn ($query) => $query->where('stock', '<', 5))
+                ->label('สต็อกต่ำ'),
+        ]);
+}
+```
+
+
+## Step 5 – ความสัมพันธ์ (Relation Manager)
+
+สมมติเรามี `Customer` กับ `Order` (1 ลูกค้า มีหลายคำสั่งซื้อ)
+
+1. สร้าง Relation Manager:
+```bash
+php artisan make:filament-relation-manager Orders --resource=CustomerResource --relationship=orders
+```
+2. แก้ใน Relation Manager ให้แสดงฟิลด์และคอลัมน์ของ `Order`
+
+## Step 6 – การจัดสิทธิ์เข้าถึง (Authorization)
+
+ถ้าต้องการใช้ร่วมกับ Spatie Laravel Permission (จะทำใน Section 13):
+
+ใช้ `can()` ใน Resource เพื่อจำกัดสิทธิ์
+
+ตัวอย่าง:
+
+```php
+public static function canViewAny(): bool
+{
+    return auth()->user()->can('view products');
+}
+```
+
+## Step 7 – Mini Workshop
+
+### โจทย์
+- ติดตั้ง Filament 3 ในโปรเจกต์ Laravel
+- สร้าง Resource ชื่อ **Customer**
+  - **Field:** `name`, `email`, `phone`
+  - **Table:** แสดง `name`, `email` และมี **Filter** “เฉพาะลูกค้าที่มีเบอร์โทร”
+- ทดลองเพิ่ม/แก้ไข/ลบ ลูกค้าใน `/admin/customers`

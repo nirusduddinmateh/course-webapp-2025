@@ -1278,3 +1278,476 @@ class UserResource extends Resource
 
 **หมายเหตุ**
 - User ต้อง use HasRoles; แล้ว (ทำไว้ใน Step 5)
+
+# Step 6 — Dashboard & Report (Filament 3)
+
+---
+
+## 6.1 สร้าง Widgets สำหรับ Dashboard
+
+ใช้ Artisan Command เพื่อสร้าง Widgets ที่จะแสดงบน Dashboard:
+
+```bash
+php artisan make:filament-widget BorrowStatsOverview
+php artisan make:filament-widget BorrowTrendChart
+php artisan make:filament-widget LowStockEquipment --table
+```
+
+- BorrowStatsOverview → ใช้สำหรับแสดงสถิติการยืม (จำนวนการยืมทั้งหมด, ยืมวันนี้, คืนแล้ว ฯลฯ)
+- BorrowTrendChart → ใช้สำหรับแสดงกราฟแนวโน้มการยืม/คืนอุปกรณ์ตามช่วงเวลา
+- LowStockEquipment → ใช้สำหรับแสดงตารางรายการอุปกรณ์ที่ใกล้หมดสต็อก
+
+### 6.1.1 สรุปสถิติ (การ์ด)
+
+ไฟล์: `app/Filament/Widgets/BorrowStatsOverview.php`
+
+```php
+<?php
+
+namespace App\Filament\Admin\Widgets;
+
+use App\Models\Borrow;
+use App\Models\Equipment;
+use Filament\Widgets\StatsOverviewWidget as BaseWidget;
+use Filament\Widgets\StatsOverviewWidget\Card;
+
+class BorrowStatsOverview extends BaseWidget
+{
+    protected ?string $heading = 'สรุปภาพรวม';
+    protected static ?string $pollingInterval = '30s'; // auto refresh ทุก 30 วินาที
+
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('view admin') ?? false;
+    }
+
+    protected function getCards(): array
+    {
+        $active   = Borrow::whereNull('returned_at')->count(); // ยืมค้าง
+        $overdue  = Borrow::whereNull('returned_at')
+                          ->whereDate('due_at','<',now()->toDateString())
+                          ->count(); // เกินกำหนด
+        $lowStock = Equipment::where('stock','<=',2)->count(); // สต็อกต่ำ
+
+        return [
+            Card::make('ยืมค้าง', $active)
+                ->description('ยังไม่คืน')
+                ->color($active > 0 ? 'warning' : 'success'),
+
+            Card::make('เกินกำหนด', $overdue)
+                ->description('ต้องติดตาม')
+                ->color($overdue > 0 ? 'danger' : 'success'),
+
+            Card::make('สต็อกต่ำ (≤2)', $lowStock)
+                ->description('รายการ')
+                ->color($lowStock > 0 ? 'warning' : 'success'),
+        ];
+    }
+}
+```
+
+**📌 คำอธิบาย:**
+
+- `StatsOverviewWidget` ใช้ทำการ์ดแสดงตัวเลขสรุป
+- เพิ่ม auto refresh ทุก 30 วินาที ด้วย `$pollingInterval`
+- ใช้ policy check (canView) ให้แสดงเฉพาะผู้ที่มีสิทธิ์ view admin
+- การ์ดแต่ละใบจะเปลี่ยน สี ตามเงื่อนไข:
+    - warning = มีค้าง/สต็อกต่ำ
+    - danger = มีเกินกำหนด
+    - success = ปกติ
+
+### 6.1.2 กราฟแนวโน้มการยืม (14 วัน)
+
+ไฟล์: `app/Filament/Admin/Widgets/BorrowTrendChart.php`
+
+```php
+<?php
+
+namespace App\Filament\Admin\Widgets;
+
+use App\Models\Borrow;
+use Filament\Widgets\ChartWidget;
+
+class BorrowTrendChart extends ChartWidget
+{
+    protected ?string $heading = 'แนวโน้มการยืม (14 วันล่าสุด)';
+
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('view admin') ?? false;
+    }
+
+    protected function getType(): string
+    {
+        return 'line';
+    }
+
+    protected function getData(): array
+    {
+        $from = now()->subDays(13)->startOfDay();
+        $to   = now()->endOfDay();
+
+        $rows = Borrow::query()
+            ->selectRaw('DATE(borrowed_at) as d, COUNT(*) as c')
+            ->whereBetween('borrowed_at', [$from, $to])
+            ->groupBy('d')
+            ->orderBy('d')
+            ->pluck('c','d');
+
+        $labels = [];
+        $data = [];
+        for ($i=0; $i<14; $i++) {
+            $date = now()->subDays(13 - $i)->toDateString();
+            $labels[] = date('d/m', strtotime($date));
+            $data[] = (int)($rows[$date] ?? 0);
+        }
+
+        return [
+            'datasets' => [[ 'label' => 'จำนวนการยืม', 'data' => $data ]],
+            'labels' => $labels,
+        ];
+    }
+}
+```
+
+### 6.1.3 ตาราง “สต็อกต่ำ”
+
+ไฟล์: `app/Filament/Admin/Widgets/LowStockEquipment.php`
+
+```php
+<?php
+
+namespace App\Filament\Admin\Widgets;
+
+use App\Models\Equipment;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Filament\Widgets\TableWidget as BaseWidget;
+
+class LowStockEquipment extends BaseWidget
+{
+    protected static ?string $heading = 'อุปกรณ์สต็อกต่ำ (≤2)';
+
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('view admin') ?? false;
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(
+                Equipment::query()
+                    ->where('stock','<=',2)
+                    ->orderBy('stock')
+            )
+            ->columns([
+                Tables\Columns\TextColumn::make('code')
+                    ->label('รหัส')
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('name')
+                    ->label('ชื่อ')
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('category.name')
+                    ->label('หมวด'),
+
+                Tables\Columns\TextColumn::make('stock')
+                    ->label('คงเหลือ'),
+            ]);
+    }
+}
+```
+
+**📌 คำอธิบาย**
+
+- Widget นี้ใช้ `TableWidget` เพื่อแสดงตารางอุปกรณ์ที่ สต็อกเหลือน้อยกว่าหรือเท่ากับ 2
+- มี column:
+    - รหัส (`code`) → ค้นหาได้
+    - ชื่อ (`name`) → ค้นหาได้
+    - หมวด (`category.name`) → ใช้ relation แสดงชื่อหมวด
+    - คงเหลือ (`stock`) → จำนวนที่เหลือในสต็อก
+- แสดงเฉพาะผู้ที่มีสิทธิ์ view admin
+
+## 6.2 สร้างหน้า Report (ฟิลเตอร์ + Export CSV)
+
+รันคำสั่งสร้างหน้าเพจ:
+```bash
+php artisan make:filament-page BorrowReport
+```
+
+### 6.2.1 โค้ด Page (HasTable + Export)
+
+ไฟล์: `app/Filament/Admin/Pages/BorrowReport.php`
+
+```php
+<?php
+
+namespace App\Filament\Admin\Pages;
+
+use App\Models\Borrow;
+use App\Models\Equipment;
+use App\Models\User;
+use Filament\Forms\Components\{DatePicker, Section, Select};
+use Filament\Pages\Page;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+class BorrowReport extends Page implements HasTable
+{
+    use InteractsWithTable;
+
+    protected static ?string $navigationIcon  = 'heroicon-o-chart-bar';
+    protected static ?string $navigationLabel = 'Borrow Report';
+    protected static ?string $navigationGroup = 'Reports';
+    protected static ?string $slug = 'borrow-report';
+    protected static string $view = 'filament.admin.pages.borrow-report';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->can('view reports');
+    }
+
+    public function mount(): void
+    {
+        abort_unless(auth()->user()?->can('view reports'), 403);
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(Borrow::query()->with(['user','equipment']))
+            ->columns([
+                Tables\Columns\TextColumn::make('id')->label('#')->sortable(),
+                Tables\Columns\TextColumn::make('user.name')->label('ผู้ยืม')->searchable(),
+                Tables\Columns\TextColumn::make('equipment.code')->label('รหัส'),
+                Tables\Columns\TextColumn::make('equipment.name')->label('อุปกรณ์')->searchable(),
+                Tables\Columns\TextColumn::make('borrowed_at')->label('ยืมเมื่อ')->dateTime('d/m/Y H:i')->sortable(),
+                Tables\Columns\TextColumn::make('due_at')->label('กำหนดคืน')->dateTime('d/m/Y')->sortable(),
+                Tables\Columns\TextColumn::make('returned_at')->label('คืนเมื่อ')->dateTime('d/m/Y H:i')->sortable(),
+                Tables\Columns\BadgeColumn::make('status')->label('สถานะ')
+                    ->colors(['warning'=>'borrowed','success'=>'returned','danger'=>'overdue'])
+                    ->sortable(),
+            ])
+            ->filters([
+                Tables\Filters\Filter::make('period')
+                    ->label('ช่วงวันที่ยืม')
+                    ->form([
+                        DatePicker::make('from')->label('จาก'),
+                        DatePicker::make('to')->label('ถึง'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        if ($data['from'] ?? null) $query->whereDate('borrowed_at','>=',$data['from']);
+                        if ($data['to'] ?? null)   $query->whereDate('borrowed_at','<=',$data['to']);
+                        return $query;
+                    }),
+
+                Tables\Filters\SelectFilter::make('user_id')
+                    ->label('ผู้ยืม')
+                    ->options(fn()=> User::orderBy('name')->pluck('name','id')->all()),
+
+                Tables\Filters\SelectFilter::make('equipment_id')
+                    ->label('อุปกรณ์')
+                    ->options(fn()=> Equipment::orderBy('name')->pluck('name','id')->all()),
+
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('สถานะ')
+                    ->options([
+                        'borrowed'=>'ยืมอยู่',
+                        'returned'=>'คืนแล้ว',
+                        'overdue' =>'เกินกำหนด',
+                    ]),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('exportCsv')
+                    ->label('Export CSV')
+                    ->visible(fn() => auth()->user()->can('export borrows'))
+                    ->action(fn() => $this->streamCsv()),
+            ])
+            ->defaultSort('borrowed_at','desc')
+            ->emptyStateHeading('ยังไม่มีข้อมูล');
+    }
+
+    protected function streamCsv(): StreamedResponse
+    {
+        abort_unless(auth()->user()->can('export borrows'), 403);
+
+        $filename = 'borrow-report-'.now()->format('Ymd_His').'.csv';
+
+        return response()->streamDownload(function () {
+            $out = fopen('php://output', 'w');
+
+            // หัวตาราง
+            fputcsv($out, ['#','ผู้ยืม','รหัส','อุปกรณ์','ยืมเมื่อ','กำหนดคืน','คืนเมื่อ','สถานะ']);
+
+            // ดึง query หลังผ่านฟิลเตอร์ในตารางแล้ว
+            $query = $this->getFilteredTableQuery()->orderBy('id');
+
+            $query->chunk(500, function ($rows) use ($out) {
+                foreach ($rows as $r) {
+                    fputcsv($out, [
+                        $r->id,
+                        optional($r->user)->name,
+                        optional($r->equipment)->code,
+                        optional($r->equipment)->name,
+                        optional($r->borrowed_at)?->format('Y-m-d H:i'),
+                        optional($r->due_at)?->format('Y-m-d'),
+                        optional($r->returned_at)?->format('Y-m-d H:i'),
+                        $r->status,
+                    ]);
+                }
+            });
+
+            fclose($out);
+        }, $filename, ['Content-Type'=>'text/csv; charset=UTF-8']);
+    }
+}
+```
+
+### 6.2.2 สร้าง View ของเพจรายงาน
+
+**ไฟล์:** `resources/views/filament/pages/borrow-report.blade.php`
+
+```blade
+<x-filament::page>
+    {{ $this->table }}
+</x-filament::page>
+```
+
+# Step 7 — ระบบอัตโนมัติ Overdue + Deploy/QA
+
+---
+
+## 7.1 คำสั่งอัปเดตสถานะ Overdue
+
+สร้าง Artisan Command:
+```bash
+php artisan make:command MarkOverdueBorrows
+```
+
+Laravel จะสร้างไฟล์ที่ `app/Console/Commands/MarkOverdueBorrows.php`
+
+```php
+<?php
+
+namespace App\Console\Commands;
+
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+
+class MarkOverdueBorrows extends Command
+{
+    protected $signature = 'borrows:mark-overdue {--dry-run : แสดงจำนวนที่จะถูกอัปเดตโดยไม่เขียนจริง}';
+    protected $description = 'อัปเดตสถานะรายการยืมที่เกินกำหนด (returned_at IS NULL และ due_at < วันนี้) ให้เป็น overdue';
+
+    public function handle(): int
+    {
+        // ใช้โซนเวลาแอป (ควรกำหนด Asia/Bangkok ใน .env/config)
+        $today = now()->toDateString();
+
+        // นับก่อน
+        $count = DB::table('borrows')
+            ->whereNull('returned_at')
+            ->whereNotNull('due_at')
+            ->whereDate('due_at', '<', $today)
+            ->where('status', '!=', 'overdue')
+            ->count();
+
+        if ($this->option('dry-run')) {
+            $this->info("พบรายการที่จะถูกอัปเดตเป็น overdue จำนวน: {$count}");
+            return self::SUCCESS;
+        }
+
+        // อัปเดตแบบ bulk (เร็วและปลอดภัย)
+        $updated = DB::table('borrows')
+            ->whereNull('returned_at')
+            ->whereNotNull('due_at')
+            ->whereDate('due_at', '<', $today)
+            ->where('status', '!=', 'overdue')
+            ->update([
+                'status'     => 'overdue',
+                'updated_at' => now(),
+            ]);
+
+        $this->info("อัปเดตสถานะ overdue แล้ว {$updated}/{$count} รายการ");
+        return self::SUCCESS;
+    }
+}
+```
+
+**การทดสอบคำสั่ง MarkOverdueBorrows**
+
+```bash
+php artisan borrows:mark-overdue --dry-run
+php artisan borrows:mark-overdue
+```
+
+**`--dry-run`** เป็น **option เสริม** ที่เราสามารถกำหนดให้กับ Artisan Command (หรือโปรแกรมอื่น ๆ)  เพื่อให้คำสั่ง **“ลองรัน”** (simulate) โดย **ไม่กระทบข้อมูลจริง**  
+
+> เคล็ดลับ: หากต้องการแจ้งเตือน (อีเมล/ข้อความ) เพิ่มเติม ให้ต่อยอดหลังอัปเดตสำเร็จ (เช่น select IDs แล้ว dispatch Job ส่งอีเมล)
+
+## 7.2 ตั้ง Scheduler เรียกคำสั่งอัตโนมัติ
+
+แก้ไฟล์ **`app/Console/Kernel.php`**:
+
+```php
+protected function schedule(\Illuminate\Console\Scheduling\Schedule $schedule): void
+{
+    // รันทุกวัน เวลา 00:15 ตาม timezone ของแอป
+    $schedule->command('borrows:mark-overdue')->dailyAt('00:15');
+
+    // (ออปชัน) เคลียร์แคชรายวันเบา ๆ
+    // $schedule->command('optimize')->dailyAt('03:30');
+}
+```
+
+> Laravel Scheduler จะใช้ timezone จาก `config/app.php` (`APP_TIMEZONE=Asia/Bangkok`)
+
+## 7.3 ตั้ง Cron บนเซิร์ฟเวอร์
+
+บนเครื่อง production ให้เพิ่ม cron ที่ผู้ใช้เว็บเซิร์ฟเวอร์ (เช่น www-data) เรียก Scheduler ทุกนาที:
+
+```cron
+* * * * * php /path/to/current/artisan schedule:run >> /dev/null 2>&1
+```
+
+เช็คทำงาน:
+```bash
+php artisan schedule:run
+# ดู log ของระบบหรือเพิ่ม $this->info ใน command เพื่อตรวจสอบ
+```
+
+## 7.4 Deploy
+
+1. สร้าง Symlink จัดเก็บไฟล์:
+
+```bash
+php artisan storage:link
+```
+
+2. สิทธิ์โฟลเดอร์:
+
+```bash
+chmod -R 775 storage bootstrap/cache
+```
+
+3. ปรับ .env สำหรับ Production:
+```bash
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://YOUR_DOMAIN
+APP_TIMEZONE=Asia/Bangkok
+LOG_LEVEL=info
+```
+
+4. Optimize & Cache:
+```bash
+php artisan optimize
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
