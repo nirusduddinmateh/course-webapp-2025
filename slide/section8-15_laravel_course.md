@@ -863,3 +863,339 @@ public static function canViewAny(): bool
   - **Field:** `name`, `email`, `phone`
   - **Table:** แสดง `name`, `email` และมี **Filter** “เฉพาะลูกค้าที่มีเบอร์โทร”
 - ทดลองเพิ่ม/แก้ไข/ลบ ลูกค้าใน `/admin/customers`
+
+
+# Section 13 – Role & Permission (Spatie) + คุมสิทธิ์ใน Filament 3
+
+## 🎯 เป้าหมาย
+- ติดตั้ง **spatie/laravel-permission** บน Laravel 11  
+- กำหนด **Role/Permission** และเชื่อมกับ **User**  
+- บังคับสิทธิ์ในหน้า **Admin ของ Filament 3**  
+  - ซ่อนเมนู  
+  - ล็อกปุ่ม  
+  - กันเข้าเพจ  
+- สร้าง **Policy** สำหรับ Model และใช้งานร่วมกันได้  
+
+## Step 1 - ติดตั้งแพ็กเกจ + migrate
+
+```bash
+composer require spatie/laravel-permission
+
+php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
+
+php artisan migrate
+```
+
+### ตารางที่จะได้จากการติดตั้งและ migrate
+
+- `roles`
+- `permissions`
+- `model_has_roles`
+- `model_has_permissions`
+- `role_has_permissions`
+
+## Step 2 - ผูก Trait กับ User
+
+แก้ไขไฟล์ `app/Models/User.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Spatie\Permission\Traits\HasRoles;   // <-- เพิ่มบรรทัดนี้
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    use Notifiable, HasRoles;  // <-- ใช้งาน Trait
+
+    protected $fillable = [
+        'name', 'email', 'password',
+    ];
+
+    // แนะนำให้ใช้ guard 'web' (default)
+}
+```
+
+## Step 3 - สร้าง Seeder สำหรับ Roles/Permissions
+
+สร้าง Seeder  
+```bash
+php artisan make:seeder RbacSeeder
+```
+
+**ไฟล์:** `database/seeders/RbacSeeder.php`
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
+
+class RbacSeeder extends Seeder
+{
+    public function run(): void
+    {
+        // กำหนดสิทธิ์พื้นฐานตามโดเมนระบบ (ยกตัวอย่าง products/customers/orders)
+        $perms = [
+            'view products', 'create products', 'edit products', 'delete products',
+            'view customers', 'create customers', 'edit customers', 'delete customers',
+            'view orders', 'create orders', 'edit orders', 'delete orders',
+            'view admin', // เข้าเมนูหลังบ้าน
+        ];
+
+        foreach ($perms as $p) {
+            Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']);
+        }
+
+        // บทบาท (Role)
+        $admin  = Role::firstOrCreate(['name' => 'Admin',  'guard_name' => 'web']);
+        $staff  = Role::firstOrCreate(['name' => 'Staff',  'guard_name' => 'web']);
+        $viewer = Role::firstOrCreate(['name' => 'Viewer', 'guard_name' => 'web']);
+
+        // ผูกสิทธิ์ให้แต่ละบทบาท
+        $admin->syncPermissions(Permission::all());
+
+        $staff->syncPermissions([
+            'view products','create products','edit products',
+            'view customers','create customers','edit customers',
+            'view orders','create orders','edit orders',
+            'view admin',
+        ]);
+
+        $viewer->syncPermissions([
+            'view products','view customers','view orders','view admin',
+        ]);
+    }
+}
+```
+
+รัน Seeder:
+```bash
+php artisan db:seed --class=RbacSeeder
+```
+
+## Step 4 - ผูก Role/Permission ตอนสร้าง Filament User
+
+ใน Section 12 เราใช้ `php artisan make:filament-user` เพื่อสร้างแอดมินครั้งแรก
+
+หลังสร้างผู้ใช้แล้ว รัน tinker มอบบทบาท:
+
+```php
+// ใช้ tinker ก็ได้
+php artisan tinker
+>>> $u = \App\Models\User::first();
+>>> $u->assignRole('Admin');   // หรือ 'Staff' / 'Viewer'
+```
+
+## Step 5 - คุมทางเข้า `/admin` ของ Filament
+
+🎯 แนวทาง: ให้เฉพาะผู้ใช้ที่มีสิทธิ์ `view admin` เข้าหลังบ้านได้
+
+---
+
+### วิธีที่ 1 – ใช้ Gate ผ่าน Middleware บน Route Group ของ Filament (ง่ายสุด)
+
+1. เปิดไฟล์ `config/filament.php`  
+   - เพิ่ม middleware ตรวจสิทธิ์เอง เช่น `EnsureUserCanViewAdmin`
+
+2. สร้างมิดเดิลแวร์  
+   ```bash
+   php artisan make:middleware EnsureUserCanViewAdmin
+   ```
+
+**ไฟล์:** `app/Http/Middleware/EnsureUserCanViewAdmin.php`
+
+```php
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+
+class EnsureUserCanViewAdmin
+{
+    public function handle(Request $request, Closure $next)
+    {
+        // ถ้าไม่ได้ล็อกอิน หรือไม่มีสิทธิ์ view admin → บล็อก
+        if (!auth()->check() || !auth()->user()->can('view admin')) {
+            abort(403, 'คุณไม่มีสิทธิ์เข้าหน้านี้');
+        }
+
+        return $next($request);
+    }
+}
+```
+
+ลงทะเบียน Middleware ใน `app/Http/Kernel.php`
+
+เพิ่มบรรทัดนี้ใน `$routeMiddleware`:
+
+```php
+protected $routeMiddleware = [
+    // ...
+    'can.view.admin' => \App\Http\Middleware\EnsureUserCanViewAdmin::class,
+];
+```
+
+## Step 6 - ซ่อนเมนู/ปุ่ม โดยเช็คสิทธิ์ใน Filament Resource
+
+ตัวอย่างใน `app/Filament/Resources/ProductResource.php`:
+
+```php
+public static function canViewAny(): bool
+{
+    return auth()->user()->can('view products');
+}
+
+public static function canCreate(): bool
+{
+    return auth()->user()->can('create products');
+}
+
+public static function canEdit($record): bool
+{
+    return auth()->user()->can('edit products');
+}
+
+public static function canDelete($record): bool
+{
+    return auth()->user()->can('delete products');
+}
+
+// ซ่อนเมนูนำทาง ถ้าไม่มีสิทธิ์
+public static function shouldRegisterNavigation(): bool
+{
+    return auth()->check() && auth()->user()->can('view products');
+}
+```
+
+**อธิบาย:**
+
+- canViewAny → ตรวจสอบสิทธิ์ดูรายการ
+- canCreate → ตรวจสอบสิทธิ์สร้างรายการ
+- canEdit / canDelete → ตรวจสอบสิทธิ์แก้ไขหรือลบรายการ
+- shouldRegisterNavigation → ซ่อนเมนูนำทางใน Filament ถ้า User ไม่มีสิทธิ์
+
+**ผลลัพธ์:**
+
+- เมนู “Products” จะหายไปถ้าไม่มี view products
+- ปุ่ม Create/Edit/Delete จะถูกซ่อน/บล็อกตามสิทธิ์
+
+## Step 7 - Mini Workshop – “คุมสิทธิ์ให้ครบลูป”
+
+#### โจทย์
+1. เพิ่ม Permission: `export products` (สำหรับปุ่ม Export)
+2. เพิ่มปุ่ม **Export CSV** ในตาราง `ProductResource` เฉพาะผู้ที่มีสิทธิ์ `export products`
+3. ผู้ใช้ Viewer **ไม่มีปุ่ม Export**
+
+
+# Section 14 – Workshop
+
+### 1. เป้าหมาย
+
+- สร้างระบบ Inventory + Borrow/Return ที่ใช้งานได้จริงบน Laravel 11 + Filament 3 + Spatie Permission
+- มี Admin Panel ครบ: จัดการหมวด/อุปกรณ์, ทำรายการยืม–คืน, รายงาน & Dashboard, RBAC
+- โค้ดและฐานข้อมูลพร้อม Deploy/ใช้งานจริง
+
+### 2. ผู้ใช้งาน & บทบาท (Roles)
+
+- Admin: จัดการทุกอย่าง, ตั้งสิทธิ์, ดูรายงาน/Export, ปรับสต็อก
+- Staff: จัดการอุปกรณ์/หมวด, ทำรายการ ยืม–คืน, ดูรายงาน
+- Viewer: ดูอย่างเดียว (อุปกรณ์, รายงาน), ไม่มี ปุ่มแก้/ลบ/คืน/Export
+> RBAC ใช้ `spatie/laravel-permission` และคุมปุ่ม/เมนูใน Filament ตามสิทธิ์
+
+### 3. ขอบเขต
+
+#### 3.1 ข้อมูลหลัก (Master Data)
+
+**หมวดอุปกรณ์ (Equipment Categories)**
+- ชื่อ (unique)
+
+**อุปกรณ์ (Equipment)**
+- หมวด
+- รหัส (unique)
+- ชื่อ
+- จำนวนคงเหลือ (stock)
+- รูปภาพ (อัปโหลดเก็บใน storage)
+- อัปเดตเวลา
+
+---
+
+#### 3.2 ธุรกรรมยืม–คืน (Borrow / Return)
+
+**บันทึกการยืม**
+- ผู้ยืม
+- อุปกรณ์
+- วันที่ยืม
+- กำหนดคืน
+- หมายเหตุ
+
+**บันทึกการคืน**
+- เวลาคืน
+- อัปเดตสถานะ
+
+**กติกา / Business Rules**
+- ยืมได้เฉพาะอุปกรณ์ที่ `stock > 0`
+- คนเดิมห้ามยืมซ้ำชิ้นเดิม ถ้ายังไม่คืน
+- การยืม → `stock -1` , การคืน → `stock +1`
+- ป้องกันกดซ้ำ / การแข่งกันด้วย `Transaction + lockForUpdate()`
+- สถานะ:
+  - `borrowed`
+  - `returned`
+  - `overdue` (ตั้งค่า overdue ผ่าน Cron / Command)
+
+---
+
+#### 3.3 รายงาน & Dashboard
+
+**Dashboard Widgets**
+- จำนวน ยืมค้าง
+- จำนวนเกินกำหนด
+- สต็อกต่ำ (≤2)
+- กราฟแนวโน้มการยืม 14 วันล่าสุด
+
+**รายงาน (Report Page)**
+- ฟิลเตอร์: ช่วงวันที่, ผู้ยืม, อุปกรณ์, สถานะ
+- Export CSV (เฉพาะผู้มีสิทธิ์ `export borrows`)
+- รองรับ query แบบ SQL ดิบ ด้วย parameter binding
+
+---
+
+#### 3.4 จัดการผู้ใช้ (User Management – ย่อ)
+- สร้าง / แก้ไข / รีเซ็ตรหัสผ่านผู้ใช้ใน Admin (เฉพาะผู้มีสิทธิ์)
+- ตั้งค่า Roles / Permissions ให้ผู้ใช้
+
+---
+
+#### 3.5 งานระบบ (System Tasks)
+- คำสั่ง Mark Overdue รายวัน (Scheduler)
+  - เปลี่ยน `status` เป็น `overdue` เมื่อเกินกำหนดและยังไม่คืน
+- ตั้งค่า `storage link`, สิทธิ์โฟลเดอร์
+- `artisan optimize` เตรียม Deploy
+
+
+### 4. โครงสร้างข้อมูล (ERD & Schema)
+
+
+[dbdiagram.io](https://dbdiagram.io/d/ER_Workshop-62ccef7dcc1bc14cc59bf545)
+
+### 5. RBAC (สิทธิ์สรุปที่ต้องมี)
+
+- `view admin`
+- Categories: `view/create/edit/delete equipment_categories`
+- Equipment: `view/create/edit/delete equipment`
+- Borrows: `view/create/edit/delete/return/export borrows` (export ไว้ใช้กับรายงาน)
+- Reports: `view reports`
+
+จับคู่ Role:
+
+- Admin → ทุกสิทธิ์
+- Staff → ไม่มี `delete/export`
+- Viewer → `view admin`, `view borrows`, `view equipment`, `view reports` เท่านั้น

@@ -1,3 +1,107 @@
+# ER Diagram
+
+[dbdiagram.io](https://dbdiagram.io/d/ER_Workshop-62ccef7dcc1bc14cc59bf545)
+
+# Step 1 — ติดตั้งโปรเจกต์ & ตั้งค่าพื้นฐาน (Laravel 11)
+
+**เป้าหมาย:**  
+ได้โปรเจกต์ Laravel 11 ใหม่, ต่อฐานข้อมูลได้, รันหน้าเว็บได้, พร้อมสำหรับติดตั้ง Filament/RBAC ในขั้นถัดไป
+
+---
+
+## 1.1 ตรวจเครื่องมือที่ต้องมี
+
+เปิด Terminal / PowerShell แล้วเช็คเวอร์ชัน:
+
+```bash
+php -v          # ต้องเป็น PHP 8.2 ขึ้นไป
+composer -V     # Composer 2.x
+mysql --version  # หรือ mariadb --version
+```
+
+PHP ควรเปิด extension: `pdo_mysql`, `mbstring`, `openssl`, `fileinfo`, `ctype`, `json`
+(บน Windows ใช้ XAMPP/Laragon, บน macOS ใช้ Homebrew + php)
+
+## 1.2 สร้างโปรเจกต์ Laravel 11 ใหม่
+
+เปิด Terminal / PowerShell แล้วรันคำสั่ง:
+
+```bash
+composer create-project laravel/laravel borrow-app "11.*"
+cd borrow-app
+```
+
+## 1.3 ตั้งค่า `.env`
+
+คัดลอกไฟล์ตัวอย่างและใส่ค่าแอป/ฐานข้อมูล
+
+```bash
+cp .env.example .env        # Windows ใช้: copy .env.example .env
+
+# สร้าง App Key
+php artisan key:generate
+```
+
+เปิด `.env` แล้วแก้ไข:
+```env
+APP_NAME="Borrow System"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://127.0.0.1:8000
+
+# แนะนำตั้ง timezone ให้ตรง (Laravel 11 ส่วนใหญ่รองรับผ่าน ENV นี้)
+APP_TIMEZONE=Asia/Bangkok
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=borrow_system
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+## 1.4 สร้าง storage link
+
+(สำหรับอัปโหลดรูปอุปกรณ์ในภายหลัง)
+
+```bash
+php artisan storage:link
+```
+
+## 1.5 Run Test (รันเซิร์ฟเวอร์เพื่อดูหน้าแรก)
+
+รันเซิร์ฟเวอร์ของ Laravel:
+
+```bash
+php artisan serve
+```
+
+## 1.6 เพิ่ม Health Route ง่ายๆ (เช็คว่าแอปรัน)
+
+แก้ไขไฟล์ `routes/web.php`:
+
+```php
+use Illuminate\Support\Facades\Route;
+
+Route::get('/health', function () {
+    return response()->json([
+        'ok' => true,
+        'time' => now()->toDateTimeString(),
+        'tz' => config('app.timezone'),
+    ]);
+});
+```
+
+## 1.7 (ทางเลือก) Setup Git Repository
+
+รันคำสั่งในโฟลเดอร์โปรเจกต์:
+
+```bash
+git init
+git add .
+git commit -m "chore: Borrow System"
+```
+
 # Step 2 — ติดตั้ง Filament 3 + สร้างแผง Admin และผู้ใช้
 
 ## 2.1 ติดตั้งแพ็กเกจ Filament 3
