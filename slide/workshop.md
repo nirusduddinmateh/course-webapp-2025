@@ -400,6 +400,18 @@ public function run(): void
 }
 ```
 
+- แก้ model
+```php
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class Borrow extends Model
+{
+    use HasFactory;
+
+    // ...
+}
+```
+
 - รัน seeder
 ```bash
 php artisan db:seed
