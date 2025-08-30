@@ -400,6 +400,11 @@ public function run(): void
 }
 ```
 
+- รัน seeder
+```bash
+php artisan db:seed
+```
+
 ## 3.6 เตรียม CRUD บน Filament 3 (สั่ง Generate โครงให้ก่อน)
 
 คำสั่งนี้จะสร้าง Resource + Pages (List/Create/Edit) พร้อมสแกน schema ให้ฟอร์ม/ตารางเริ่มต้น:
