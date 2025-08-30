@@ -73,6 +73,7 @@ php artisan storage:link
 รันเซิร์ฟเวอร์ของ Laravel:
 
 ```bash
+php artisan migrate
 php artisan serve
 ```
 
@@ -242,8 +243,12 @@ php artisan migrate
 **ไฟล์:** `app/Models/EquipmentCategory.php`
 
 ```php
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class EquipmentCategory extends Model
 {
+    use  HasFactory;
+
     protected $fillable = ['name'];
 
     public function equipment()
@@ -256,8 +261,12 @@ class EquipmentCategory extends Model
 **ไฟล์:** `app/Models/Equipment.php`
 
 ```php
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class Equipment extends Model
 {
+    use  HasFactory;
+
     protected $table = 'equipment';
 
     protected $fillable = [
@@ -279,8 +288,12 @@ class Equipment extends Model
 **ไฟล์:** `app/Models/Borrow.php`
 
 ```php
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class Borrow extends Model
 {
+    use  HasFactory;
     protected $fillable = [
         'user_id','equipment_id','borrowed_at','due_at','returned_at','status','note',
     ];
@@ -397,18 +410,6 @@ public function run(): void
             ];
         })
         ->create();
-}
-```
-
-- แก้ model
-```php
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-
-class Borrow extends Model
-{
-    use HasFactory;
-
-    // ...
 }
 ```
 
@@ -1130,9 +1131,9 @@ public static function canDelete($record): bool
 ```php
 <?php
 
-namespace App\Filament\Admin\Resources\BorrowResource\Pages;
+namespace App\Filament\Resources\BorrowResource\Pages;
 
-use App\Filament\Admin\Resources\BorrowResource;
+use App\Filament\Resources\BorrowResource;
 use App\Models\Borrow;
 use App\Models\Equipment;
 use Filament\Resources\Pages\CreateRecord;
@@ -1254,9 +1255,9 @@ php artisan make:filament-resource User --generate
 ```php
 <?php
 
-namespace App\Filament\Admin\Resources;
+namespace App\Filament\Resources;
 
-use App\Filament\Admin\Resources\UserResource\Pages;
+use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -1430,7 +1431,7 @@ php artisan make:filament-widget LowStockEquipment --table
 ```php
 <?php
 
-namespace App\Filament\Admin\Widgets;
+namespace App\Filament\Widgets;
 
 use App\Models\Borrow;
 use App\Models\Equipment;
@@ -1484,12 +1485,12 @@ class BorrowStatsOverview extends BaseWidget
 
 ### 6.1.2 กราฟแนวโน้มการยืม (14 วัน)
 
-ไฟล์: `app/Filament/Admin/Widgets/BorrowTrendChart.php`
+ไฟล์: `app/Filament/Widgets/BorrowTrendChart.php`
 
 ```php
 <?php
 
-namespace App\Filament\Admin\Widgets;
+namespace App\Filament\Widgets;
 
 use App\Models\Borrow;
 use Filament\Widgets\ChartWidget;
@@ -1538,12 +1539,12 @@ class BorrowTrendChart extends ChartWidget
 
 ### 6.1.3 ตาราง “สต็อกต่ำ”
 
-ไฟล์: `app/Filament/Admin/Widgets/LowStockEquipment.php`
+ไฟล์: `app/Filament/Widgets/LowStockEquipment.php`
 
 ```php
 <?php
 
-namespace App\Filament\Admin\Widgets;
+namespace App\Filament\Widgets;
 
 use App\Models\Equipment;
 use Filament\Tables;
@@ -1605,12 +1606,12 @@ php artisan make:filament-page BorrowReport
 
 ### 6.2.1 โค้ด Page (HasTable + Export)
 
-ไฟล์: `app/Filament/Admin/Pages/BorrowReport.php`
+ไฟล์: `app/Filament/Pages/BorrowReport.php`
 
 ```php
 <?php
 
-namespace App\Filament\Admin\Pages;
+namespace App\Filament\Pages;
 
 use App\Models\Borrow;
 use App\Models\Equipment;
