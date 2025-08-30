@@ -518,9 +518,9 @@ class EquipmentCategoryResource extends Resource
 ```php
 <?php
 
-namespace App\Filament\Admin\Resources;
+namespace App\Filament\Resources;
 
-use App\Filament\Admin\Resources\EquipmentCategoryResource\Pages;
+use App\Filament\Resources\EquipmentResource\Pages;
 use App\Models\Equipment;
 use Filament\Forms;
 use Filament\Forms\Form;
