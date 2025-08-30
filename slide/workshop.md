@@ -153,6 +153,11 @@ http://127.0.0.1:8000/admin
 ```
 ล็อกอินด้วยอีเมล/รหัสผ่านที่เพิ่งสร้าง → ควรเห็นหน้า Dashboard ของ Filament
 
+- แก้ปัญหา css ไม่โหลด
+```bash
+php artisan filament:assets
+```
+
 # Step 3 — Models & Migrations + เตรียม CRUD
 
 ## 3.1 สร้าง Model + Migration
