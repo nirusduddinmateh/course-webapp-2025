@@ -40,7 +40,7 @@
 
 ## 🔹 5. ติดตั้ง Composer
 
-1. ดาวน์โหลด Composer-Setup.exe
+1. ดาวน์โหลด [Composer-Setup.exe](https://github.com/composer/windows-setup/releases/download/v6.3.0/Composer-Setup.6.3.0.exe)
 2. ตอนติดตั้ง เลือก PHP executable:
    ```
    C:\xampp\php\php.exe
