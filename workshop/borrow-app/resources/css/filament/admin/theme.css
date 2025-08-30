@@ -1,0 +1,175 @@
+/* Google Fonts (อยู่บนสุดเสมอ) */
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==============================
+   ตัวแปรธีมพื้นฐานสำหรับใช้ซ้ำ
+============================== */
+:root {
+  --font-family: 'Kanit', system-ui, ui-sans-serif, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans Thai', sans-serif;
+  --brand-start: #16a34a; /* emerald-600 */
+  --brand-end:   #06b6d4; /* cyan-500   */
+  --brand-500:   #10b981; /* emerald-500 */
+  --brand-600:   #059669; /* emerald-600 */
+  --ring:        rgba(6, 182, 212, 0.35);
+}
+
+html, body {
+  font-family: var(--font-family);
+}
+
+/* ===== Sidebar gradient + เนียนมุม ===== */
+.fi-sidebar {
+  background: linear-gradient(160deg, var(--brand-start), var(--brand-end));
+  color: white;
+}
+.fi-sidebar .fi-logo {
+  filter: drop-shadow(0 2px 10px rgba(0,0,0,0.25));
+}
+.fi-sidebar .fi-sidebar-nav .fi-active > a,
+.fi-sidebar .fi-sidebar-nav a:hover {
+  background-color: rgba(255,255,255,0.14);
+  border-radius: 0.75rem;
+}
+
+/* ===== Topbar (Header) แบบโปร่ง + เบลอ ===== */
+.fi-header {
+  backdrop-filter: saturate(140%) blur(10px);
+  background-color: rgba(255,255,255,0.6);
+}
+.dark .fi-header {
+  background-color: rgba(15,23,42,0.6); /* slate-900/60 */
+}
+
+/* ===== ปุ่มหลักให้เด่นขึ้น ===== */
+.fi-btn.fi-color-primary {
+  box-shadow: 0 8px 24px rgba(16,185,129,0.25);
+}
+
+/* ===== การ์ด/Section ให้กลิ่น glass ===== */
+.fi-section, .fi-wi-stats-overview-card, .fi-ta {
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.6));
+  border: 1px solid rgba(255,255,255,0.5);
+}
+.dark .fi-section, .dark .fi-wi-stats-overview-card, .dark .fi-ta {
+  background: linear-gradient(180deg, rgba(2,6,23,0.65), rgba(2,6,23,0.5));
+  border-color: rgba(148,163,184,0.15); /* slate-400/15 */
+}
+
+/* ===== โฟกัสอินพุตสีเข้ากับแบรนด์ ===== */
+.fi-input:focus, .fi-select:focus, .fi-textarea:focus {
+  box-shadow: 0 0 0 4px var(--ring);
+}
+
+/* ===== แถบสถานะในตาราง (badge) ให้อ่านง่าย ===== */
+.fi-badge {
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+/* ===== โลโก้ใน Sidebar ให้สูงกำลังดี ===== */
+.fi-logo {
+  max-height: 2rem;
+}
+
+/* ===== ช่องค้นหาใน Topbar โค้งนุ่ม ===== */
+.fi-global-search input {
+  border-radius: 9999px;
+}
+
+/* Login background แบบเต็มจอ */
+.fi-login-page {
+  background:
+    radial-gradient(60rem 60rem at -10% -10%, rgba(22,163,74,0.35), transparent 60%),
+    radial-gradient(50rem 50rem at 120% 10%, rgba(6,182,212,0.35), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65));
+  min-height: 100vh;
+}
+.dark .fi-login-page {
+  background:
+    radial-gradient(60rem 60rem at -10% -10%, rgba(22,163,74,0.15), transparent 60%),
+    radial-gradient(50rem 50rem at 120% 10%, rgba(6,182,212,0.15), transparent 60%),
+    linear-gradient(180deg, rgba(2,6,23,0.9), rgba(2,6,23,0.7));
+}
+
+/* การ์ดล็อกอินแนว glass */
+.fi-login-page .fi-card {
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.6));
+  border: 1px solid rgba(255,255,255,0.45);
+  box-shadow: 0 16px 60px rgba(0,0,0,0.15);
+}
+.dark .fi-login-page .fi-card {
+  background: linear-gradient(180deg, rgba(2,6,23,0.7), rgba(2,6,23,0.55));
+  border-color: rgba(148,163,184,0.15);
+}
+
+/* ========== Sidebar Navigation Text ========== */
+
+.fi-sidebar-item-label,
+.dark .fi-sidebar-item-label {
+  color: #ffffff !important;
+}
+
+/* ทำให้ icon ใน Sidebar เป็นสีขาว */
+.fi-sidebar-item-icon {
+  color: #ffffff !important;
+}
+
+/* ถ้าอยากให้ทั้ง Light/Dark ขาวเหมือนกัน */
+.dark .fi-sidebar-item-icon {
+  color: #ffffff !important;
+}
+
+/* Active menu icon */
+.fi-sidebar-nav .fi-active .fi-sidebar-item-icon {
+  color: #ffffff !important;
+  opacity: 1;
+}
+
+/* Hover menu icon */
+.fi-sidebar-nav a:hover .fi-sidebar-item-icon {
+  color: #ffffff !important;
+  opacity: 0.9;
+}
+
+/* Group label (Reports, Admin) เป็นสีขาว */
+.fi-sidebar-group-label {
+  color: #ffffff !important;
+}
+.dark .fi-sidebar-group-label {
+  color: #ffffff !important;
+}
+
+.fi-sidebar-group-label {
+  color: #ffffff !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.75rem; /* ขนาดเล็กกำลังดี */
+}
+
+/* Collapse button (ลูกศรพับ/ขยาย group) */
+.fi-sidebar-group-collapse-button {
+  color: #ffffff !important;
+}
+
+/* Hover / Focus ก็ยังเป็นขาว */
+.fi-sidebar-group-collapse-button:hover,
+.fi-sidebar-group-collapse-button:focus {
+  color: #ffffff !important;
+}
+
+.fi-sidebar-group-collapse-button .fi-icon-btn-icon {
+  transition: transform 0.25s ease;
+}
+
+
+.fi-header {
+    padding: 10px;
+    border-radius: 10px;
+}
