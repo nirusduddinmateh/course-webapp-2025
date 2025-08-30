@@ -120,8 +120,9 @@ Route::prefix('v1')->group(function () {
         // Equipment
         Route::apiResource('equipment', EquipmentController::class);
 
-        // Borrow (create only)
+        // Borrow / Return
         Route::post('borrows', [BorrowController::class, 'store']);
+        Route::post('borrows/{borrow}/return', [BorrowController::class, 'return']);
     });
 });
 ```
@@ -408,6 +409,32 @@ class BorrowController extends Controller
             return (new BorrowResource($borrow->load(['user','equipment'])))
                     ->response()
                     ->setStatusCode(201);
+        });
+    }
+
+    public function return(\App\Models\Borrow $borrow): JsonResponse
+    {
+        // เช็คก่อน: ถ้าคืนแล้ว ไม่ควรทำซ้ำ
+        if ($borrow->returned_at) {
+            return response()->json(['message' => 'รายการนี้คืนแล้ว'], 409);
+        }
+
+        return DB::transaction(function () use ($borrow) {
+            // ล็อกแถวอุปกรณ์ป้องกันแข่งกัน
+            $eq = \App\Models\Equipment::lockForUpdate()->findOrFail($borrow->equipment_id);
+
+            // อัปเดตสถานะคืน
+            $borrow->update([
+                'returned_at' => now(),
+                'status'      => 'returned',
+            ]);
+
+            // คืนสต็อก
+            $eq->increment('stock');
+
+            return (new \App\Http\Resources\Api\BorrowResource(
+                $borrow->fresh()->load(['user','equipment'])
+            ))->response()->setStatusCode(200);
         });
     }
 }
